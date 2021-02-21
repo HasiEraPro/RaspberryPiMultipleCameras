@@ -1,5 +1,5 @@
 import paho.mqtt.client as mqtt
-import time
+import ftplib
 
 messageGlob = ""
 broker_address = "127.0.0.1"
@@ -7,8 +7,10 @@ client_ID = "Slave-01"
 sub_topic = "shoot/"
 pub_topic = "online/"+client_ID
 client = mqtt.Client(client_ID)
-
-
+ftp_server_address = "127.0.0.1"
+ftp_user = "user"
+ftp_passwd = "12345"
+ftp_port = 2121
 def on_message(client, userdata, message):
     global messageGlob
     messageGlob = str(message.payload.decode("utf-8"))
@@ -31,6 +33,7 @@ def main():
     except:
         print("connection to MQTT broker failed")
 
+    send_photo_ftp()
 
 def disconnect():
     client.loop_stop()  # stop the loop
@@ -42,6 +45,21 @@ def take_photo():
 
 
 def send_photo_ftp():
+    session = ftplib.FTP()
+    session.connect(ftp_server_address, ftp_port)
+    session.login(ftp_user, ftp_passwd)
+    file = open("E:\FTP.txt", "rb")  # file to send
+
+    try:
+
+
+        session.storbinary('STOR kitten.txt', file)  # send the file
+        file.close()  # close file and FTP
+        session.quit()
+    except:
+        file.close()  # close file and FTP
+        session.quit()
+
     print("Sent photo FTP")
 
 
