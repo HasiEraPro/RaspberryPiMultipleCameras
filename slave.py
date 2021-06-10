@@ -1,12 +1,18 @@
 #-------------------------------------------------------
 ################ Includes ###################
 #-------------------------------------------------------
-
+import sys
 import paho.mqtt.client as mqtt
 import ftplib
 from time import sleep
 import time
 import logging
+
+import fake_rpi
+
+sys.modules['picamera'] = fake_rpi.picamera     # Fake RPi
+
+from picamera import PiCamera
 #-------------------------------------------------------
 ################ user settings  ###################
 #-------------------------------------------------------
@@ -17,14 +23,18 @@ broker_address = "192.168.1.200"
 client_ID = "Slave-01"
 #mqtt subscription topic,the master will send command from this topic
 sub_topic = "shoot/"
+
+
 pub_topic = "online/" + client_ID
+pub_topic_photoTaken = "photoTaken/"
 client = mqtt.Client(client_ID)
 #ftp server address ,this is same as the master rpi(static ip)
 ftp_server_address = "192.168.1.200"
 #ftp seteuped to use the local user login username
 ftp_user = "pi"
 #ftp seteuped to use the local user login password
-ftp_passwd = "GoatHotel77)$"
+#ftp_passwd = "GoatHotel77)$"
+ftp_passwd = "toor"
 #ftp port
 ftp_port = 21
 
@@ -34,10 +44,10 @@ ftp_port = 21
 ############# Global variables  ###################
 #-------------------------------------------------------
 messageGlob = ""
-
+ftpSavePath = ""
 timeInterval = 0
 recivedTime = 0
-#camera = PiCamera()
+camera = PiCamera()
 
 
 
@@ -54,6 +64,7 @@ def main():
         print("Subscribing to topic", sub_topic)
         client.subscribe(sub_topic)
 
+
     except:
         print("connection to MQTT broker failed")
 
@@ -62,14 +73,18 @@ def main():
 
 def on_message(client, userdata, message):
     global messageGlob
+    global ftpSavePath
     messageGlob = str(message.payload.decode("utf-8"))
     global timeInterval, recivedTime
-    recivedTime, timeInterval = int(messageGlob.split(',')[0]), int(messageGlob.split(',')[1])
-    nowTime = time.time()
+    recivedTime, timeInterval, ftpSavePath = int(messageGlob.split(',')[0]), int(messageGlob.split(',')[1]), messageGlob.split(',')[2]
+
+    nowTime = (int)(time.time())
 
     print(timeInterval)
     print(recivedTime)
-
+    print(nowTime)
+    print(ftpSavePath)
+    print((nowTime - recivedTime))
     if ((nowTime - recivedTime) >= 0):
         timeToTake = timeInterval - (nowTime - recivedTime)
         take_photo(timeToTake)
@@ -108,28 +123,31 @@ def disconnect():
 def take_photo(delay):
     global camera
     sleep(delay)
-    #camera.capture('/home/pi/ProgramSlave/images/pic' + str(recivedTime) + '.jpg')
+    camera.capture('/home/pi/ProgramSlave/images/pic' + str(recivedTime) + '.jpg')
     print("Took photo")
 
 
 def send_photo_ftp():
+    global ftpSavePath
     session = ftplib.FTP()
     session.connect(ftp_server_address, ftp_port)
     session.login(ftp_user, ftp_passwd)
-    file = open('/home/pi/ProgramSlave/images/pic' + str(recivedTime) + '.jpg', "rb")  # file to send
-
+    #file = open('/home/pi/ProgramSlave/images/pic' + str(recivedTime) + '.jpg', "rb")  # file to send
+    file = open('1.jpg', "rb")
     try:
+        session.cwd(ftpSavePath)
         session.storbinary('STOR image' + str(recivedTime) + '_' + client_ID + '.jpg', file)  # send the file
         file.close()  # close file and FTP
         session.quit()
         print("Sent photo FTP Success")
+        client.publish(pub_topic_photoTaken, str(recivedTime) + '_' + client_ID + '.jpg')
     except:
+        print(sys.exc_info()[0])
         print("Sent photo FTP Failed")
         file.close()  # close file and FTP
         session.quit()
     finally:
-        file.close()  # close file and FTP
-        session.quit()
+        file.close()
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ messageGlob = ""
 
 timeInterval = 0
 recivedTime = 0
-#camera = PiCamera()
+camera = PiCamera()
 
 
 
@@ -108,7 +108,7 @@ def disconnect():
 def take_photo(delay):
     global camera
     sleep(delay)
-    #camera.capture('/home/pi/ProgramSlave/images/pic' + str(recivedTime) + '.jpg')
+    camera.capture('/home/pi/ProgramSlave/images/pic' + str(recivedTime) + '.jpg')
     print("Took photo")
 
 
